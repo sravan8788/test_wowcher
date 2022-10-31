@@ -1,0 +1,61 @@
+pipeline {
+  environment {
+    registry = "wowcher/test-app"
+    registryCredential = 'dockerhub'
+    dockerImage = ''
+    env = 'test'
+  }
+    agent {
+      tools {
+        terraform 'terraform'
+      }
+    }
+    stages {
+        stage('Cloning Git') {
+          steps {
+            git 'https://github.com/this-repo-test-app'
+          }
+        }
+      stage('Building image') {
+      steps{
+        script {
+          dockerImage = docker.build registry + ":$BUILD_NUMBER"
+        }
+      }
+    }
+    stage('Deploy Image') {
+      steps{
+         script {
+            docker.withRegistry( '', registryCredential ) {
+            dockerImage.push()
+          }
+        }
+      }
+    }
+    stage('Remove Unused docker image') {
+      steps{
+        sh "docker rmi $registry:$BUILD_NUMBER"
+      }
+    }
+    stage('terraform format check') {
+        steps{
+            sh make fmt
+        }
+    }
+    stage('terraform Init') {
+        steps{
+            sh make init
+        }
+    }
+    stage('terraform Plan') {
+        steps{
+            sh make plan
+        }
+    }
+    stage('terraform apply') {
+        steps{
+            sh make apply
+        }
+    }
+  }
+}
